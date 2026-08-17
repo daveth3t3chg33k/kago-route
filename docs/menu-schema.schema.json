@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kagoroute.dev/schemas/menu/1.0",
+  "title": "KagoRoute USSD Menu Schema",
+  "description": "Declarative definition of a USSD menu flow. See docs/ussd-menu-schema.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "flow"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": ["kagoroute/menu/1.0"],
+      "description": "DSL identifier + version. Unknown values are rejected by the engine."
+    },
+    "flow": { "$ref": "#/definitions/Flow" }
+  },
+  "definitions": {
+    "NodeId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,63}$"
+    },
+    "VariableName": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,63}$",
+      "description": "User variable names must not start with '$' (reserved for system variables)."
+    },
+
+    "Flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "start", "nodes"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$" },
+        "name": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 500 },
+        "version": { "type": "integer", "minimum": 1 },
+        "start": { "$ref": "#/definitions/NodeId" },
+        "timeouts": { "$ref": "#/definitions/Timeouts" },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/VariableDecl" }
+        },
+        "webhooks": { "$ref": "#/definitions/Webhooks" },
+        "nodes": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/NodeId" },
+          "additionalProperties": { "$ref": "#/definitions/Node" },
+          "minProperties": 1
+        }
+      }
+    },
+
+    "Timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 180,
+          "description": "Total session budget in seconds (carrier limit 180)."
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Per-callback inactivity budget in seconds."
+        }
+      }
+    },
+
+    "VariableDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/definitions/VariableName" },
+        "type": { "enum": ["int", "float", "text", "phone", "amount"] },
+        "source": { "enum": ["caller"], "description": "'caller' = captured from the dialing number." }
+      }
+    },
+
+    "Webhooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "onComplete": { "$ref": "#/definitions/Webhook" }
+      }
+    },
+
+    "Webhook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "secret": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "events": {
+          "type": "array",
+          "items": {
+            "enum": ["complete", "invalid", "timeout", "payment.result"]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "Node": {
+      "oneOf": [
+        { "$ref": "#/definitions/MenuNode" },
+        { "$ref": "#/definitions/InputNode" },
+        { "$ref": "#/definitions/ActionNode" },
+        { "$ref": "#/definitions/EndNode" }
+      ]
+    },
+
+    "MenuNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text", "options"],
+      "properties": {
+        "type": { "const": "menu" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "options": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]$", "description": "Option keys are single digits." },
+          "additionalProperties": { "$ref": "#/definitions/OptionValue" },
+          "minProperties": 1
+        },
+        "onInvalid": { "$ref": "#/definitions/Recovery" },
+        "onTimeout": { "$ref": "#/definitions/Recovery" }
+      }
+    },
+
+    "OptionValue": {
+      "anyOf": [
+        { "$ref": "#/definitions/Branch" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Branch" },
+          "minItems": 1
+        }
+      ]
+    },
+
+    "Branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goto"],
+      "properties": {
+        "when": {
+          "anyOf": [
+            { "$ref": "#/definitions/Condition" },
+            { "type": "array", "items": { "$ref": "#/definitions/Condition" }, "minItems": 1 }
+          ],
+          "description": "Branches evaluate in order; first match wins; a branch without 'when' is the catch-all."
+        },
+        "set": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/VariableName" },
+          "additionalProperties": true
+        },
+        "compute": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/VariableName" },
+          "additionalProperties": { "type": "string" }
+        },
+        "goto": { "$ref": "#/definitions/NodeId" }
+      }
+    },
+
+    "Condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["var", "op"],
+      "properties": {
+        "var": {
+          "type": "string",
+          "pattern": "^\\$?[a-zA-Z][a-zA-Z0-9_]{0,63}$",
+          "description": "User or system variable."
+        },
+        "op": {
+          "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "startsWith", "matches", "isSet", "in"]
+        },
+        "value": {
+          "description": "Omitted for isSet. An array for 'in'."
+        }
+      }
+    },
+
+    "InputNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "prompt", "variable", "next"],
+      "properties": {
+        "type": { "const": "input" },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "variable": { "$ref": "#/definitions/VariableName" },
+        "validate": { "$ref": "#/definitions/Validation" },
+        "onInvalid": { "$ref": "#/definitions/Recovery" },
+        "onTimeout": { "$ref": "#/definitions/Recovery" },
+        "next": { "$ref": "#/definitions/NodeId" }
+      }
+    },
+
+    "Validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["int", "float", "text", "phone", "amount", "option"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "pattern": { "type": "string", "description": "Regex (Rust regex syntax)." },
+        "options": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "message": { "type": "string", "maxLength": 160 }
+      }
+    },
+
+    "ActionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "next"],
+      "properties": {
+        "type": { "const": "action" },
+        "set": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/VariableName" },
+          "additionalProperties": true
+        },
+        "compute": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/VariableName" },
+          "additionalProperties": { "type": "string" }
+        },
+        "next": { "$ref": "#/definitions/NodeId" }
+      }
+    },
+
+    "EndNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "end" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "payments": { "$ref": "#/definitions/Payments" },
+        "onTimeout": { "$ref": "#/definitions/Recovery" }
+      }
+    },
+
+    "Payments": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mpesa": { "$ref": "#/definitions/MpesaStkPush" }
+      }
+    },
+
+    "MpesaStkPush": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shortCode", "amountExpr", "phoneExpr"],
+      "properties": {
+        "shortCode": { "type": "string", "pattern": "^[0-9]{5,7}$" },
+        "amountExpr": { "type": "string", "minLength": 1 },
+        "phoneExpr": { "type": "string", "minLength": 1 },
+        "accountRef": { "type": "string", "maxLength": 12 },
+        "transactionDesc": { "type": "string", "maxLength": 13 }
+      }
+    },
+
+    "Recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goto"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "goto": { "$ref": "#/definitions/NodeId" }
+      }
+    }
+  }
+}

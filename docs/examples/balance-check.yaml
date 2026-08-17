@@ -1,0 +1,28 @@
+# Minimal flow: one menu, two terminal screens.
+# Every KagoRoute flow needs: schema, flow.id, flow.version, flow.start, flow.nodes.
+schema: "kagoroute/menu/1.0"
+
+flow:
+  id: "balance-check"
+  name: "Account Balance"
+  description: "Let users check their account balance over USSD."
+  version: 1
+  start: "menu"
+
+  nodes:
+    menu:
+      type: menu
+      text: "Check your balance\n1. Continue\n0. Exit"
+      options:
+        "1":
+          - goto: "result"
+        "0":
+          - goto: "bye"
+
+    result:
+      type: end
+      text: "Your account balance is KES 12,450.50.\nThank you for banking with us."
+
+    bye:
+      type: end
+      text: "Goodbye."

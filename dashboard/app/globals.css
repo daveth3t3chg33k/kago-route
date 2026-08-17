@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo,
+    Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #060a09;
+}
+
+/* Blinking cursor for the USSD terminal mock */
+@keyframes kr-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.kr-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  background-color: #34d399;
+  vertical-align: text-bottom;
+  animation: kr-blink 1.1s step-end infinite;
+}
+
+/* Soft glow used behind the hero */
+.kr-glow {
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(16, 185, 129, 0.18), transparent 65%),
+    radial-gradient(ellipse 40% 40% at 85% 20%, rgba(56, 189, 248, 0.08), transparent 60%);
+}

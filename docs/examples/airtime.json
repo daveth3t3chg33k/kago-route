@@ -1,0 +1,72 @@
+{
+  "schema": "kagoroute/menu/1.0",
+  "flow": {
+    "id": "airtime",
+    "name": "Airtime Top-up",
+    "description": "Buy airtime for yourself or another number, with validation.",
+    "version": 2,
+    "start": "main_menu",
+    "timeouts": { "session": 120, "step": 20 },
+    "webhooks": {
+      "onComplete": {
+        "url": "https://api.mobileco.co.ke/v1/webhooks/airtime",
+        "secret": "whsec_mobileco_demo"
+      }
+    },
+    "variables": [
+      { "name": "amount", "type": "int" },
+      { "name": "targetPhone", "type": "phone" }
+    ],
+    "nodes": {
+      "main_menu": {
+        "type": "menu",
+        "text": "MobileCo Airtime\n1. Buy for myself\n2. Buy for another\n0. Exit",
+        "options": {
+          "1": [
+            { "set": { "targetPhone": "$phone" }, "goto": "amount" }
+          ],
+          "2": [{ "goto": "target_phone" }],
+          "0": [{ "goto": "bye" }]
+        }
+      },
+      "target_phone": {
+        "type": "input",
+        "prompt": "Enter recipient phone, e.g. 2547XXXXXXXX:",
+        "variable": "targetPhone",
+        "validate": { "type": "phone" },
+        "onInvalid": {
+          "text": "Invalid phone. Use format 2547XXXXXXXX.",
+          "goto": "target_phone"
+        },
+        "next": "amount"
+      },
+      "amount": {
+        "type": "input",
+        "prompt": "Enter amount in KES (1 - 10,000):",
+        "variable": "amount",
+        "validate": { "type": "int", "min": 1, "max": 10000 },
+        "onInvalid": {
+          "text": "Enter a whole number between 1 and 10,000.",
+          "goto": "amount"
+        },
+        "next": "confirm"
+      },
+      "confirm": {
+        "type": "menu",
+        "text": "Send KES {amount} to {targetPhone}?\n1. Confirm\n2. Cancel",
+        "options": {
+          "1": [{ "goto": "processing" }],
+          "2": [{ "goto": "bye" }]
+        }
+      },
+      "processing": {
+        "type": "end",
+        "text": "Airtime of KES {amount} to {targetPhone} is being processed.\nYou will receive a confirmation SMS."
+      },
+      "bye": {
+        "type": "end",
+        "text": "Thank you for using MobileCo. Goodbye."
+      }
+    }
+  }
+}

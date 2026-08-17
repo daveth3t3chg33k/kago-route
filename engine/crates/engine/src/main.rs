@@ -1,13 +1,16 @@
 //! KagoRoute engine — the USSD/SMS integration layer.
 //!
 //! Boots an Axum server that:
-//!  - answers carrier/aggregator USSD callbacks with `CON` / `END` text,
-//!  - keeps session state in Redis (with an in-memory fallback for local dev),
+//!  - loads and validates a menu-schema flow at boot (fail closed),
+//!  - answers carrier/aggregator USSD callbacks by walking the schema and
+//!    replying with `CON` / `END` text,
+//!  - keeps session variables and loop-guard state in Redis (with an
+//!    in-memory fallback for local dev),
 //!  - persists callback logs to PostgreSQL when available.
 
 mod config;
-mod menu;
 mod routes;
+mod schema;
 mod session;
 mod state;
 
@@ -19,6 +22,7 @@ use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
 use crate::config::Config;
+use crate::schema::load_flow;
 use crate::session::{memory::MemoryStore, redis::RedisStore, SessionStore};
 use crate::state::AppState;
 
@@ -30,6 +34,18 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,tower_http=debug")))
         .init();
+
+    // ── Schema: parse + validate fail-closed at boot ─────────────────────
+    let flow = load_flow(config.flow_schema_path.as_deref()).unwrap_or_else(|err| {
+        eprintln!("FATAL: {err}");
+        std::process::exit(1);
+    });
+    tracing::info!(
+        flow_id = %flow.id,
+        flow_version = flow.version,
+        start = %flow.start,
+        "loaded flow schema"
+    );
 
     // ── Session store: prefer Redis, fall back to in-memory ──────────────
     let session_store: Arc<SessionStore> = match RedisStore::connect(&config.redis_url).await {
@@ -69,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ── HTTP server ──────────────────────────────────────────────────────
     let state = Arc::new(AppState {
+        flow,
         session_store,
         db,
         started_at: Instant::now(),

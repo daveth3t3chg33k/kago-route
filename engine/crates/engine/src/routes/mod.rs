@@ -1,5 +1,6 @@
 //! HTTP route wiring.
 
+pub mod flow;
 pub mod health;
 pub mod ussd;
 
@@ -15,6 +16,7 @@ use crate::state::AppState;
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health::health))
+        .route("/flow", get(flow::flow))
         .route("/ussd/callback", post(ussd::callback))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())

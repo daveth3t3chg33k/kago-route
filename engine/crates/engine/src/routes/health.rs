@@ -23,5 +23,9 @@ pub async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Valu
         "uptime_secs": state.started_at.elapsed().as_secs(),
         "session_store": state.session_store.name(),
         "database": database,
+        "flow": {
+            "id": state.flow.id,
+            "version": state.flow.version,
+        },
     }))
 }

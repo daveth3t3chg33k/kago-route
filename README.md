@@ -101,19 +101,29 @@ npm run dev          # http://localhost:3000
 
 | Method | Path               | Description                                    |
 |--------|--------------------|------------------------------------------------|
-| GET    | `/health`          | Liveness + session store & database status     |
-| POST   | `/ussd/callback`   | Inbound carrier/aggregator USSD callback; accepts `application/x-www-form-urlencoded` or `application/json` with `sessionId`, `serviceCode`, `phoneNumber`, `text`; replies `CON`/`END` text. |
+| GET    | `/health`          | Liveness + session store, database & flow status |
+| GET    | `/flow`            | Metadata of the loaded menu schema              |
+| POST   | `/ussd/callback`   | Inbound carrier/aggregator USSD callback; accepts `application/x-www-form-urlencoded` or `application/json` with `sessionId`, `serviceCode`, `phoneNumber`, `text`; walks the loaded menu schema and replies `CON`/`END` text. |
+
+### Menu schemas
+
+The engine loads a flow from `FLOW_SCHEMA_PATH` (JSON or YAML) at boot and validates it
+fail-closed (dangling targets, screen-length limits, timeouts, cycles). If unset, an embedded
+demo flow (the `farmer-order` example) is served. See
+[`docs/ussd-menu-schema.md`](docs/ussd-menu-schema.md) for the DSL and
+[`docs/examples/`](docs/examples/) for flows you can point `FLOW_SCHEMA_PATH` at.
 
 ## Roadmap
 
 1. ✅ **Menu schema DSL** — spec in [`docs/ussd-menu-schema.md`](docs/ussd-menu-schema.md),
    formal JSON Schema in [`docs/menu-schema.schema.json`](docs/menu-schema.schema.json),
    example flows in [`docs/examples/`](docs/examples/).
-2. **Engine** — schema-driven session walker (parse the DSL with serde per Appendix B),
-   tenant isolation, adapter trait (Africa's Talking first).
+2. ✅ **Engine** — schema-driven session walker: parses the DSL with serde (Appendix B),
+   validates fail-closed at boot, replays cumulative carrier text through the graph, and
+   replies `CON`/`END`. Session variables & loop-guard state in Redis (in-memory fallback).
 3. **Outbound webhooks** — async relay of completed flows into client backends (idempotent, retried).
 4. **Dashboard** — visual menu builder, live traffic monitor, payload logs, API-key management.
-5. **M-Pesa (Daraja STK push)** — start payment from USSD flow, consume callback, relay receipt.
+5. **M-Pesa (Daraja STK push)** — fire STK push from `payments.mpesa`, consume callback, relay receipt.
 6. **Billing** — tiered subscriptions + per-session usage markup.
 
 ## License

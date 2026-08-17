@@ -3,7 +3,8 @@
 //! Accepts the fields Africa's Talking (and most aggregators) POST on every
 //! session step — `sessionId`, `serviceCode`, `phoneNumber`, `text` — either
 //! as `application/x-www-form-urlencoded` or `application/json`, walks the
-//! menu, and replies with a `CON` / `END` string exactly like a carrier expects.
+//! loaded menu schema, and replies with a `CON` / `END` string exactly like a
+//! carrier expects.
 
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ use axum::response::{IntoResponse, Response};
 
 use serde::Deserialize;
 
-use crate::menu::run_demo_menu;
+use crate::schema::walk::{walk, WalkRequest};
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -50,20 +51,35 @@ pub async fn callback(State(state): State<Arc<AppState>>, body: String) -> Respo
         "USSD callback received"
     );
 
-    let reply = run_demo_menu(&state.session_store, &cb.session_id, &cb.phone_number, &cb.text).await;
+    let outcome = walk(
+        &state.session_store,
+        &WalkRequest {
+            flow: &state.flow,
+            text: &cb.text,
+            phone: &cb.phone_number,
+            session_id: &cb.session_id,
+            service_code: &cb.service_code,
+        },
+    )
+    .await;
 
     // Persist the exchange when Postgres is available; never fail the request
     // on a logging hiccup.
     if let Some(pool) = &state.db {
+        let variables_json = serde_json::to_string(&outcome.variables).unwrap_or_default();
         let result = sqlx::query(
-            "INSERT INTO callback_logs (session_id, service_code, phone_number, ussd_text, reply) \
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO callback_logs \
+             (session_id, service_code, phone_number, ussd_text, reply, flow_id, flow_version, variables) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(&cb.session_id)
         .bind(&cb.service_code)
         .bind(&cb.phone_number)
         .bind(&cb.text)
-        .bind(&reply.text)
+        .bind(&outcome.body)
+        .bind(&state.flow.id)
+        .bind(state.flow.version as i64)
+        .bind(variables_json)
         .execute(pool)
         .await;
 
@@ -72,5 +88,5 @@ pub async fn callback(State(state): State<Arc<AppState>>, body: String) -> Respo
         }
     }
 
-    reply.to_body().into_response()
+    outcome.body.into_response()
 }

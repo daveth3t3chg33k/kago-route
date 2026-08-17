@@ -5,6 +5,8 @@
  * (see .env.local.example and the Dockerfile build ARG).
  */
 
+import type { FlowDocument } from "./schema/types";
+
 export const ENGINE_URL = (
   process.env.NEXT_PUBLIC_ENGINE_URL ?? "http://localhost:8080"
 ).replace(/\/+$/, "");
@@ -76,6 +78,9 @@ export const engineApi = {
   },
   sessions(signal?: AbortSignal) {
     return getJson<SessionsResponse>("/sessions", signal);
+  },
+  flowSchema(signal?: AbortSignal) {
+    return getJson<FlowDocument>("/flow/schema", signal);
   },
 };
 

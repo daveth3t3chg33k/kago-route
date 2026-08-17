@@ -31,6 +31,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health::health))
         .route("/flow", get(flow::flow))
+        .route("/flow/schema", get(flow::flow_schema))
         .route("/sessions", get(sessions::sessions))
         .route(
             "/ussd/callback",
@@ -280,6 +281,24 @@ mod tests {
                 .and_then(|v| v.to_str().ok()),
             Some("http://localhost:3000")
         );
+    }
+
+    #[tokio::test]
+    async fn flow_schema_endpoint_round_trips() {
+        // GET /flow/schema must serialize a FlowDocument that the loader can
+        // parse back — the builder depends on exact round-trips.
+        let app = app(&[], 4096);
+        let res = app
+            .oneshot(Request::builder().uri("/flow/schema").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 64 * 1024).await.unwrap();
+        let doc: crate::schema::FlowDocument = serde_json::from_slice(&body).unwrap();
+        assert_eq!(doc.schema, crate::schema::DSL_IDENTIFIER);
+        assert_eq!(doc.flow.id, "farmer-order");
+        assert!(doc.flow.nodes.contains_key("welcome"));
+        assert!(doc.flow.nodes.contains_key("stk_flagged"));
     }
 
     #[tokio::test]

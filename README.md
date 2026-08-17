@@ -114,6 +114,7 @@ origin (default `CORS_ALLOWED_ORIGINS` already covers `http://localhost:3000`).
 |--------|--------------------|------------------------------------------------|
 | GET    | `/health`          | Liveness + session store, database & flow status |
 | GET    | `/flow`            | Metadata of the loaded menu schema              |
+| GET    | `/flow/schema`     | Full loaded schema as a `FlowDocument` (for the visual builder) |
 | GET    | `/sessions`        | Live USSD sessions (id + cached variables), for the dashboard |
 | POST   | `/ussd/callback`   | Inbound carrier/aggregator USSD callback; accepts `application/x-www-form-urlencoded` or `application/json` with `sessionId`, `serviceCode`, `phoneNumber`, `text`; walks the loaded menu schema and replies `CON`/`END` text. |
 

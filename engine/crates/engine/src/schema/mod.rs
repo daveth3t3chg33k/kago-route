@@ -33,17 +33,17 @@ pub struct FlowDocument {
 #[serde(rename_all = "camelCase")]
 pub struct Flow {
     pub id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub version: u32,
     pub start: String,
     #[serde(default)]
     pub timeouts: Timeouts,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variables: Vec<VariableDecl>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhooks: Option<Webhooks>,
     pub nodes: HashMap<String, Node>,
 }
@@ -82,16 +82,16 @@ fn default_step_timeout() -> u32 {
 #[serde(rename_all = "camelCase")]
 pub struct VariableDecl {
     pub name: String,
-    #[serde(default, rename = "type")]
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Webhooks {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_complete: Option<Webhook>,
 }
 
@@ -99,9 +99,9 @@ pub struct Webhooks {
 #[serde(rename_all = "camelCase")]
 pub struct Webhook {
     pub url: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<String>,
 }
 
@@ -122,9 +122,9 @@ pub enum Node {
 pub struct MenuNode {
     pub text: String,
     pub options: HashMap<String, OptionValue>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_invalid: Option<Recovery>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_timeout: Option<Recovery>,
 }
 
@@ -133,11 +133,11 @@ pub struct MenuNode {
 pub struct InputNode {
     pub prompt: String,
     pub variable: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub validate: Option<Validation>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_invalid: Option<Recovery>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_timeout: Option<Recovery>,
     pub next: String,
 }
@@ -145,9 +145,9 @@ pub struct InputNode {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionNode {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub set: HashMap<String, Value>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub compute: HashMap<String, String>,
     pub next: String,
 }
@@ -156,7 +156,7 @@ pub struct ActionNode {
 #[serde(rename_all = "camelCase")]
 pub struct EndNode {
     pub text: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payments: Option<Payments>,
 }
 
@@ -184,11 +184,11 @@ impl OptionValue {
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// `when` accepts a single condition or a list; normalized to `Vec`.
-    #[serde(default, deserialize_with = "deserialize_when")]
+    #[serde(default, deserialize_with = "deserialize_when", skip_serializing_if = "Vec::is_empty")]
     pub when: Vec<Condition>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub set: HashMap<String, Value>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub compute: HashMap<String, String>,
     pub goto: String,
 }
@@ -218,7 +218,7 @@ where
 pub struct Condition {
     pub var: String,
     pub op: Op,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
 }
 
@@ -245,19 +245,19 @@ pub enum Op {
 pub struct Validation {
     #[serde(rename = "type")]
     pub kind: ValidationKind,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max: Option<f64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_length: Option<usize>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_length: Option<usize>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pattern: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
@@ -277,7 +277,7 @@ pub enum ValidationKind {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Recovery {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     pub goto: String,
 }
@@ -287,7 +287,7 @@ pub struct Recovery {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Payments {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mpesa: Option<MpesaStkPush>,
 }
 
@@ -297,9 +297,9 @@ pub struct MpesaStkPush {
     pub short_code: String,
     pub amount_expr: String,
     pub phone_expr: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_ref: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transaction_desc: Option<String>,
 }
 

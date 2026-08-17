@@ -56,9 +56,6 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn get_display(&self, name: &str) -> String {
-        self.get(name).map(|v| value_display(&v)).unwrap_or_default()
-    }
 }
 
 // ── Expressions ──────────────────────────────────────────────────────────
@@ -409,7 +406,8 @@ mod tests {
         let v2 = vars(&[("total", json!("17500"))]);
         assert!(eval_condition(&cond("total", Op::Eq, json!(17500)), &ctx(&v2)));
         // isSet
-        let c3 = ctx(&vars(&[("a", json!("x")), ("b", json!(""))]));
+        let vars3 = vars(&[("a", json!("x")), ("b", json!(""))]);
+        let c3 = ctx(&vars3);
         let set = |var: &str| Condition { var: var.to_string(), op: Op::IsSet, value: None };
         assert!(eval_condition(&set("a"), &c3));
         assert!(!eval_condition(&set("b"), &c3));

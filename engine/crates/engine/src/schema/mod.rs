@@ -105,16 +105,6 @@ pub enum Node {
     End(EndNode),
 }
 
-impl Node {
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Node::Menu(_) => "menu",
-            Node::Input(_) => "input",
-            Node::Action(_) => "action",
-            Node::End(_) => "end",
-        }
-    }
-}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,22 +181,6 @@ pub struct Branch {
     pub goto: String,
 }
 
-/// `when` accepts a single condition or a list; normalized to `Vec`.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum OneOrMany<T> {
-    One(T),
-    Many(Vec<T>),
-}
-
-impl<T> OneOrMany<T> {
-    pub fn into_vec(self) -> Vec<T> {
-        match self {
-            OneOrMany::One(x) => vec![x],
-            OneOrMany::Many(xs) => xs,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -331,11 +305,6 @@ pub fn load_flow(path: Option<&str>) -> Result<Arc<Flow>, String> {
         .map_err(|errors| format!("schema {label} failed validation: {}", errors.join("; ")))?;
 
     Ok(Arc::new(doc.flow))
-}
-
-/// Normalize a `when` field (single condition or list) to a `Vec`.
-pub fn normalize_when<T: Deserialize<'static>>(value: Option<OneOrMany<T>>) -> Vec<T> {
-    value.map(OneOrMany::into_vec).unwrap_or_default()
 }
 
 /// Value → display string used in interpolation.

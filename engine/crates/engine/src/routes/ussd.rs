@@ -63,6 +63,13 @@ pub async fn callback(State(state): State<Arc<AppState>>, body: String) -> Respo
     )
     .await;
 
+    tracing::info!(
+        session_id = %cb.session_id,
+        node_id = %outcome.node_id,
+        ended = outcome.ended,
+        "USSD callback processed"
+    );
+
     // Persist the exchange when Postgres is available; never fail the request
     // on a logging hiccup.
     if let Some(pool) = &state.db {

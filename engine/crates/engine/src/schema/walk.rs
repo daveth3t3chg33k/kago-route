@@ -43,7 +43,6 @@ pub struct WalkOutcome {
 #[derive(Debug)]
 struct PendingError {
     message: String,
-    node: String,
 }
 
 pub async fn walk(store: &SessionStore, req: &WalkRequest<'_>) -> WalkOutcome {
@@ -93,7 +92,7 @@ pub async fn walk(store: &SessionStore, req: &WalkRequest<'_>) -> WalkOutcome {
                         }
                         None => {
                             let (message, goto) = menu_recovery(m, &current);
-                            pending_error = Some(PendingError { message, node: current.clone() });
+                            pending_error = Some(PendingError { message });
                             current = goto;
                             let count = bump_guard(store, &prefix, &current, &ttl).await;
                             if count > LOOP_GUARD_LIMIT {
@@ -133,7 +132,7 @@ pub async fn walk(store: &SessionStore, req: &WalkRequest<'_>) -> WalkOutcome {
                         }
                         Err(message) => {
                             let (recovery_message, goto) = input_recovery(i, &current, message);
-                            pending_error = Some(PendingError { message: recovery_message, node: current.clone() });
+                            pending_error = Some(PendingError { message: recovery_message });
                             current = goto;
                             let count = bump_guard(store, &prefix, &current, &ttl).await;
                             if count > LOOP_GUARD_LIMIT {
@@ -415,7 +414,7 @@ mod tests {
         for _ in 1..LOOP_GUARD_LIMIT {
             text.push_str("*9");
             last = run(&store, &flow, "t1", &text).await;
-            assert!(!last.ended, "should still be open at repeat {_}");
+            assert!(!last.ended, "should still be open at repeat {}", i);
         }
         // One more invalid repeat trips the guard.
         text.push_str("*9");

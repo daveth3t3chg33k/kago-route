@@ -302,7 +302,7 @@ mod tests {
             description: None,
             version: 1,
             start: start.into(),
-            timeouts: Default::default(),
+            timeouts: crate::schema::Timeouts { session: 120, step: 20 },
             variables: vec![],
             webhooks: None,
             nodes: nodes.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),

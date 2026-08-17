@@ -94,21 +94,15 @@ pub async fn walk(store: &SessionStore, req: &WalkRequest<'_>) -> WalkOutcome {
                             let (message, goto) = menu_recovery(m, &current);
                             pending_error = Some(PendingError { message });
                             current = goto;
-                            let count = bump_guard(store, &prefix, &current, &ttl).await;
-                            if count > LOOP_GUARD_LIMIT {
-                                return finish(store, &prefix, &ttl, vars, current.clone(), "END Too many invalid attempts. Please try again later.", true).await;
-                            }
                         }
                     }
                 } else {
                     // No more input: render the menu (or the pending error).
-                    let body = match pending_error.take() {
-                        Some(e) => format!("CON {}", e.message),
-                        None => {
-                            let ctx = ctx_for(req, &vars);
-                            format!("CON {}", interpolate(&m.text, &ctx))
-                        }
-                    };
+                    if let Some(e) = pending_error.take() {
+                        return render_error(store, &prefix, &ttl, req, vars, current.clone(), e.message).await;
+                    }
+                    let ctx = ctx_for(req, &vars);
+                    let body = format!("CON {}", interpolate(&m.text, &ctx));
                     return finish(store, &prefix, &ttl, vars, current.clone(), body, false).await;
                 }
             }
@@ -134,20 +128,14 @@ pub async fn walk(store: &SessionStore, req: &WalkRequest<'_>) -> WalkOutcome {
                             let (recovery_message, goto) = input_recovery(i, &current, message);
                             pending_error = Some(PendingError { message: recovery_message });
                             current = goto;
-                            let count = bump_guard(store, &prefix, &current, &ttl).await;
-                            if count > LOOP_GUARD_LIMIT {
-                                return finish(store, &prefix, &ttl, vars, current.clone(), "END Too many invalid attempts. Please try again later.", true).await;
-                            }
                         }
                     }
                 } else {
-                    let body = match pending_error.take() {
-                        Some(e) => format!("CON {}", e.message),
-                        None => {
-                            let ctx = ctx_for(req, &vars);
-                            format!("CON {}", interpolate(&i.prompt, &ctx))
-                        }
-                    };
+                    if let Some(e) = pending_error.take() {
+                        return render_error(store, &prefix, &ttl, req, vars, current.clone(), e.message).await;
+                    }
+                    let ctx = ctx_for(req, &vars);
+                    let body = format!("CON {}", interpolate(&i.prompt, &ctx));
                     return finish(store, &prefix, &ttl, vars, current.clone(), body, false).await;
                 }
             }
@@ -411,10 +399,10 @@ mod tests {
         let flow = demo();
         let mut text = String::from("9");
         let mut last = run(&store, &flow, "t1", &text).await;
-        for _ in 1..LOOP_GUARD_LIMIT {
+        for i in 1..LOOP_GUARD_LIMIT {
             text.push_str("*9");
             last = run(&store, &flow, "t1", &text).await;
-            assert!(!last.ended, "should still be open at repeat {}", i);
+            assert!(!last.ended, "should still be open at repeat {i}");
         }
         // One more invalid repeat trips the guard.
         text.push_str("*9");

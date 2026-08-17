@@ -210,45 +210,52 @@ impl<'a, 'c> Parser<'a, 'c> {
 
 // ── Interpolation ────────────────────────────────────────────────────────
 
-/// Replace `{var}` in a template. `{{` escapes to a literal `{`. Missing
-/// variables render as an empty string with a warning.
+/// Replace `{var}` in a template. `{{` and `}}` escape to literal braces.
+/// Missing variables render as an empty string with a warning.
 pub fn interpolate(template: &str, ctx: &Context) -> String {
     let mut out = String::new();
     let mut chars = template.chars().peekable();
 
     while let Some(c) = chars.next() {
-        if c != '{' {
-            out.push(c);
-            continue;
-        }
-        // Escaped literal brace.
-        if chars.peek() == Some(&'{') {
-            chars.next();
-            out.push('{');
-            continue;
-        }
-        let mut name = String::new();
-        let mut closed = false;
-        while let Some(&next) = chars.peek() {
-            if next == '}' {
-                chars.next();
-                closed = true;
-                break;
-            }
-            name.push(next);
-            chars.next();
-        }
-        if closed {
-            match ctx.get(name.trim()) {
-                Some(v) => out.push_str(&value_display(&v)),
-                None => {
-                    tracing::warn!(var = %name.trim(), "interpolation: variable not found");
+        match c {
+            '{' => {
+                // Escaped literal brace: `{{`.
+                if chars.peek() == Some(&'{') {
+                    chars.next();
+                    out.push('{');
+                    continue;
+                }
+                // Otherwise parse `{var}`.
+                let mut name = String::new();
+                let mut closed = false;
+                while let Some(&next) = chars.peek() {
+                    if next == '}' {
+                        chars.next();
+                        closed = true;
+                        break;
+                    }
+                    name.push(next);
+                    chars.next();
+                }
+                if closed {
+                    match ctx.get(name.trim()) {
+                        Some(v) => out.push_str(&value_display(&v)),
+                        None => {
+                            tracing::warn!(var = %name.trim(), "interpolation: variable not found");
+                        }
+                    }
+                } else {
+                    // Unterminated brace: keep it literally.
+                    out.push('{');
+                    out.push_str(&name);
                 }
             }
-        } else {
-            // Unterminated brace: keep it literally.
-            out.push('{');
-            out.push_str(&name);
+            '}' if chars.peek() == Some(&'}') => {
+                // Escaped literal brace: `}}`.
+                chars.next();
+                out.push('}');
+            }
+            c => out.push(c),
         }
     }
     out

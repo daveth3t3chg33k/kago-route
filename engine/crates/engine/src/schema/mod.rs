@@ -172,13 +172,33 @@ impl OptionValue {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
-    #[serde(default)]
+    /// `when` accepts a single condition or a list; normalized to `Vec`.
+    #[serde(default, deserialize_with = "deserialize_when")]
     pub when: Vec<Condition>,
     #[serde(default)]
     pub set: HashMap<String, Value>,
     #[serde(default)]
     pub compute: HashMap<String, String>,
     pub goto: String,
+}
+
+fn deserialize_when<'de, D>(deserializer: D) -> Result<Vec<Condition>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum When {
+        One(Condition),
+        Many(Vec<Condition>),
+    }
+
+    let when = Option::<When>::deserialize(deserializer)?;
+    Ok(match when {
+        Some(When::One(cond)) => vec![cond],
+        Some(When::Many(list)) => list,
+        None => vec![],
+    })
 }
 
 

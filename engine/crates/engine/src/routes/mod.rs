@@ -3,6 +3,7 @@
 pub mod auth;
 pub mod flow;
 pub mod health;
+pub mod sessions;
 pub mod ussd;
 
 use std::sync::Arc;
@@ -30,6 +31,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health::health))
         .route("/flow", get(flow::flow))
+        .route("/sessions", get(sessions::sessions))
         .route(
             "/ussd/callback",
             post(ussd::callback)
@@ -278,6 +280,39 @@ mod tests {
                 .and_then(|v| v.to_str().ok()),
             Some("http://localhost:3000")
         );
+    }
+
+    #[tokio::test]
+    async fn sessions_endpoint_lists_active_sessions() {
+        let app = app(&[], 4096);
+
+        // No sessions yet.
+        let res = app
+            .clone()
+            .oneshot(Request::builder().uri("/sessions").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(res.into_body(), 4096).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["count"], 0);
+
+        // Walk a session, then it should appear.
+        let _ = app
+            .clone()
+            .oneshot(callback_request(None, "1*1*2"))
+            .await
+            .unwrap();
+
+        let res = app
+            .oneshot(Request::builder().uri("/sessions").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(res.into_body(), 4096).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["count"], 1);
+        assert_eq!(json["sessions"][0]["id"], "t1");
+        assert!(json["sessions"][0]["vars"]["product"].is_string());
     }
 
     #[tokio::test]

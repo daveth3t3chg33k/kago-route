@@ -61,8 +61,9 @@ impl SessionStore {
         }
     }
 
-    /// Live sessions: unique `sessionId`s that have a cached variable set.
-    /// Returns `(session_id, vars_json)` pairs, newest-first where known.
+    /// Live sessions: `(key, vars_json)` pairs for every cached variable set
+    /// (`session:{id}:vars`). Order is unspecified — consumers treat it as
+    /// informational.
     pub async fn active_sessions(&self) -> Vec<(String, String)> {
         match self {
             Self::Memory(store) => store.active_sessions().await,

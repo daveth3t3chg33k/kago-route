@@ -431,7 +431,8 @@ mod tests {
         let store = SessionStore::Memory(MemoryStore::default());
         let flow = demo();
         let mut text = String::from("9");
-        let mut last = run(&store, &flow, "t1", &text).await;
+        run(&store, &flow, "t1", &text).await;
+        let mut last;
         for i in 1..LOOP_GUARD_LIMIT {
             text.push_str("*9");
             last = run(&store, &flow, "t1", &text).await;

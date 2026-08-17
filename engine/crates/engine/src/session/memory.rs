@@ -36,14 +36,43 @@ impl MemoryStore {
     pub async fn active_sessions(&self) -> Vec<(String, String)> {
         let guard = self.inner.read().await;
         let now = Instant::now();
-        let mut items: Vec<(String, String)> = guard
+        guard
             .iter()
-            .filter(|(k, (_, expires_at))| k.ends_with(":vars") && **expires_at > now)
+            .filter(|(k, (_, expires_at))| k.ends_with(":vars") && *expires_at > now)
             .map(|(k, (v, _))| (k.clone(), v.clone()))
-            .collect();
-        // Newest-first (insertion order is not reliable; sort by nothing we
-        // track beyond expiry — keep it simple, order is informational).
-        items.sort_by(|a, b| b.1.cmp(&a.1));
-        items
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn lists_only_live_vars_keys() {
+        let store = MemoryStore::default();
+        store.set("session:a:vars", r#"{"x":1}"#, Duration::from_secs(60)).await;
+        store.set("session:a:guard", "welcome|2", Duration::from_secs(60)).await;
+        store.set("session:b:vars", r#"{"y":2}"#, Duration::from_secs(60)).await;
+        store.set("expired:vars", "{}", Duration::from_millis(1)).await;
+
+        // Let the expired key lapse.
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let active = store.active_sessions().await;
+        assert_eq!(active.len(), 2);
+        assert!(active.iter().any(|(k, _)| k == "session:a:vars"));
+        assert!(active.iter().any(|(k, _)| k == "session:b:vars"));
+        assert!(!active.iter().any(|(k, _)| k == "expired:vars"));
+        // Guard keys are excluded.
+        assert!(!active.iter().any(|(k, _)| k == "session:a:guard"));
+    }
+
+    #[tokio::test]
+    async fn expired_keys_are_dropped_from_get() {
+        let store = MemoryStore::default();
+        store.set("session:c:vars", "{}", Duration::from_millis(1)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert!(store.get("session:c:vars").await.is_none());
     }
 }

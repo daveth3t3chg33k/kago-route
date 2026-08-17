@@ -93,11 +93,20 @@ hack on the callback handler with zero infrastructure.
 
 ### Dashboard (Next.js)
 
+The dashboard polls the engine's read endpoints (`/health`, `/flow`, `/sessions`) every few
+seconds and renders a live overview: engine health, session store/database status, the loaded
+flow's metadata, and active USSD sessions.
+
 ```bash
 cd dashboard
+cp .env.local.example .env.local   # optional: point NEXT_PUBLIC_ENGINE_URL elsewhere
 npm install
 npm run dev          # http://localhost:3000
 ```
+
+`NEXT_PUBLIC_ENGINE_URL` defaults to `http://localhost:8080` and is inlined at build time
+(the Dockerfile passes it as a build `ARG`). CORS on the engine must include the dashboard
+origin (default `CORS_ALLOWED_ORIGINS` already covers `http://localhost:3000`).
 
 ## Engine API (v0 scaffold)
 
@@ -105,6 +114,7 @@ npm run dev          # http://localhost:3000
 |--------|--------------------|------------------------------------------------|
 | GET    | `/health`          | Liveness + session store, database & flow status |
 | GET    | `/flow`            | Metadata of the loaded menu schema              |
+| GET    | `/sessions`        | Live USSD sessions (id + cached variables), for the dashboard |
 | POST   | `/ussd/callback`   | Inbound carrier/aggregator USSD callback; accepts `application/x-www-form-urlencoded` or `application/json` with `sessionId`, `serviceCode`, `phoneNumber`, `text`; walks the loaded menu schema and replies `CON`/`END` text. |
 
 ### Security
@@ -120,6 +130,11 @@ npm run dev          # http://localhost:3000
   `http://localhost:3000`). Disallowed browser origins (and their preflights) get no CORS
   headers, so browsers block them; requests without an `Origin` header (carriers, curl) pass
   through untouched.
+
+> **Note:** only `POST /ussd/callback` is authenticated. The read endpoints (`/health`,
+> `/flow`, `/sessions`) are intentionally open for the dev dashboard; `/sessions` exposes
+> cached session variables (e.g. order amounts), so gate it behind the flows/auth API before
+> running on a network real tenants can reach.
 
 ### Menu schemas
 
@@ -138,7 +153,8 @@ demo flow (the `farmer-order` example) is served. See
    validates fail-closed at boot, replays cumulative carrier text through the graph, and
    replies `CON`/`END`. Session variables & loop-guard state in Redis (in-memory fallback).
 3. **Outbound webhooks** — async relay of completed flows into client backends (idempotent, retried).
-4. **Dashboard** — visual menu builder, live traffic monitor, payload logs, API-key management.
+4. ⏳ **Dashboard** — live overview shell is done (engine health + flow + live sessions);
+   visual menu builder, payload logs, and API-key management remain.
 5. **M-Pesa (Daraja STK push)** — fire STK push from `payments.mpesa`, consume callback, relay receipt.
 6. **Billing** — tiered subscriptions + per-session usage markup.
 

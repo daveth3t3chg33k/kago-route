@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use crate::schema::expr::{eval_condition, expr_syntax_ok};
+use crate::schema::expr::expr_syntax_ok;
 use crate::schema::{Condition, Flow, Node, Recovery, ValidationKind};
 
 pub const MAX_SCREEN_CHARS: usize = 160;
@@ -62,6 +62,9 @@ fn check_node(id: &str, node: &Node, flow: &Flow, errors: &mut Vec<String>) {
                     check_target(id, &branch.goto, flow, errors);
                     for (var, expr) in &branch.compute {
                         check_expr(id, var, expr, errors);
+                    }
+                    for var in branch.set.keys() {
+                        check_var_name(id, var, errors);
                     }
                     for cond in &branch.when {
                         check_condition(id, cond, errors);
@@ -131,10 +134,6 @@ fn check_condition(id: &str, cond: &Condition, errors: &mut Vec<String>) {
             errors.push(format!("node '{id}': 'in' condition requires an array value"));
         }
     }
-    // Ensure the condition is at least evaluable syntactically (cheap smoke).
-    let empty = HashMap::new();
-    let ctx = crate::schema::expr::Context::new(&empty, "", "", "", "", 0, "");
-    let _ = eval_condition(cond, &ctx);
 }
 
 fn check_recovery(id: &str, recovery: &Option<Recovery>, flow: &Flow, errors: &mut Vec<String>) {
@@ -464,6 +463,19 @@ mod tests {
         );
         let flow = load_flow(Some(path)).expect("airtime.json must load");
         assert_eq!(flow.id, "airtime");
+    }
+
+    #[test]
+    fn yaml_flow_without_timeouts_uses_defaults() {
+        // balance-check.yaml omits the whole `timeouts` block; the loader must
+        // apply the 120s/20s defaults instead of failing validation.
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../docs/examples/balance-check.yaml"
+        );
+        let flow = load_flow(Some(path)).expect("balance-check.yaml must load");
+        assert_eq!(flow.timeouts.session, 120);
+        assert_eq!(flow.timeouts.step, 20);
     }
 
     #[test]

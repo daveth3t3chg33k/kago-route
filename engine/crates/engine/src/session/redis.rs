@@ -40,4 +40,18 @@ impl RedisStore {
         let mut conn = self.conn.clone();
         conn.del(key).await
     }
+
+    /// All `*:vars` keys currently present (KEYS is acceptable for the dev
+    /// dashboard; production should switch to SCAN at scale).
+    pub async fn active_sessions(&self) -> redis::RedisResult<Vec<(String, String)>> {
+        let mut conn = self.conn.clone();
+        let keys: Vec<String> = conn.keys("session:*:vars").await?;
+        let mut items = Vec::with_capacity(keys.len());
+        for key in keys {
+            if let Some(value) = conn.get::<_, Option<String>>(&key).await? {
+                items.push((key, value));
+            }
+        }
+        Ok(items)
+    }
 }

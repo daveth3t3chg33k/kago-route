@@ -84,11 +84,23 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // ── HTTP server ──────────────────────────────────────────────────────
+    if !config.security.callback_secrets.is_empty() {
+        tracing::info!(
+            secrets = config.security.callback_secrets.len(),
+            "USSD callback auth: required (X-KagoRoute-Key header)"
+        );
+    } else {
+        tracing::warn!(
+            "USSD_CALLBACK_SECRET(S) not set — /ussd/callback is UNAUTHENTICATED (dev only)"
+        );
+    }
+
     let state = Arc::new(AppState {
         flow,
         session_store,
         db,
         started_at: Instant::now(),
+        security: config.security,
     });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

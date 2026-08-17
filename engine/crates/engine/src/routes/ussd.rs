@@ -35,6 +35,9 @@ fn parse_callback(body: &str) -> Option<UssdCallback> {
 }
 
 pub async fn callback(State(state): State<Arc<AppState>>, body: String) -> Response {
+    // Auth is enforced by the `auth::require_callback_key` middleware (see
+    // routes/mod.rs), so the body here is only ever read after authorization.
+
     let Some(cb) = parse_callback(&body) else {
         return (
             StatusCode::BAD_REQUEST,

@@ -721,6 +721,7 @@ dependencies = [
  "serde_yaml",
  "sqlx",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",

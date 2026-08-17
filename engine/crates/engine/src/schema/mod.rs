@@ -50,13 +50,24 @@ pub struct Flow {
 
 // ── Flow-level metadata ──────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Timeouts {
     #[serde(default = "default_session_timeout")]
     pub session: u32,
     #[serde(default = "default_step_timeout")]
     pub step: u32,
+}
+
+impl Default for Timeouts {
+    /// `#[serde(default)]` on `Flow.timeouts` uses this when the whole block
+    /// is omitted — must yield valid defaults (120s session, 20s step), not 0s.
+    fn default() -> Self {
+        Self {
+            session: default_session_timeout(),
+            step: default_step_timeout(),
+        }
+    }
 }
 
 fn default_session_timeout() -> u32 {
@@ -305,7 +316,7 @@ pub fn load_flow(path: Option<&str>) -> Result<Arc<Flow>, String> {
         None => (demo::FARMER_ORDER.to_string(), "<embedded demo>".to_string()),
     };
 
-    let use_json = path.is_some_and(|p| p.ends_with(".json"));
+    let use_json = path.is_some_and(|p| p.to_ascii_lowercase().ends_with(".json"));
     let doc: FlowDocument = if use_json {
         serde_json::from_str(&raw)
             .map_err(|e| format!("failed to parse schema {label}: {e}"))?

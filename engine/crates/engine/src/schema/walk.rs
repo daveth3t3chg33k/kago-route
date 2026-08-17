@@ -244,6 +244,39 @@ async fn finish(
     }
 }
 
+/// Render an invalid-input error, bumping the loop-guard counter once per
+/// *callback* (a callback may replay several invalid segments; the guard is
+/// about consecutive failing callbacks, not segments). Trips the guard into a
+/// forced `END` after `LOOP_GUARD_LIMIT` consecutive errors at the same node.
+async fn render_error(
+    store: &SessionStore,
+    prefix: &str,
+    ttl: &Duration,
+    req: &WalkRequest<'_>,
+    vars: HashMap<String, Value>,
+    node_id: String,
+    message: String,
+) -> WalkOutcome {
+    // Spec §8: onInvalid/Recovery text supports {var} interpolation.
+    let ctx = ctx_for(req, &vars);
+    let message = interpolate(&message, &ctx);
+    let count = bump_guard(store, prefix, &node_id, ttl).await;
+    if count > LOOP_GUARD_LIMIT {
+        return finish(
+            store,
+            prefix,
+            ttl,
+            vars,
+            node_id,
+            "END Too many invalid attempts. Please try again later.",
+            true,
+        )
+        .await;
+    }
+    let _ = req;
+    finish(store, prefix, ttl, vars, node_id, format!("CON {message}"), false).await
+}
+
 async fn bump_guard(store: &SessionStore, prefix: &str, node: &str, ttl: &Duration) -> u32 {
     let key = format!("{prefix}:guard");
     let previous = store.get(&key).await.unwrap_or_default();

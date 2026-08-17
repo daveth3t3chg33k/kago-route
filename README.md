@@ -68,8 +68,10 @@ Smoke test the engine:
 ```bash
 curl -s http://localhost:8080/health
 
-# Simulate an Africa's Talking USSD callback (form-encoded)
+# Simulate an Africa's Talking USSD callback (form-encoded).
+# The compose setup enables a dev secret, so send the key header:
 curl -s -X POST http://localhost:8080/ussd/callback \
+  -H "X-KagoRoute-Key: dev_secret_change_me" \
   -d "sessionId=test-1&serviceCode=*123*2%23&phoneNumber=254712345678&text="
 ```
 
@@ -104,6 +106,20 @@ npm run dev          # http://localhost:3000
 | GET    | `/health`          | Liveness + session store, database & flow status |
 | GET    | `/flow`            | Metadata of the loaded menu schema              |
 | POST   | `/ussd/callback`   | Inbound carrier/aggregator USSD callback; accepts `application/x-www-form-urlencoded` or `application/json` with `sessionId`, `serviceCode`, `phoneNumber`, `text`; walks the loaded menu schema and replies `CON`/`END` text. |
+
+### Security
+
+- **Callback auth:** set `USSD_CALLBACK_SECRET` (single tenant) or `USSD_CALLBACK_SECRETS`
+  (comma-separated, one key per tenant). `/ussd/callback` then requires the `X-KagoRoute-Key`
+  header to match one of them (constant-time comparison). Enforced by a middleware that runs
+  *before* the handler, so unauthorized bodies are never read. Unset → unauthenticated with a
+  warning at boot (dev only).
+- **Body limit:** callback bodies are capped at `USSD_MAX_BODY_BYTES` (default 4096); over the
+  limit → `413`.
+- **CORS:** restricted to `CORS_ALLOWED_ORIGINS` (comma-separated; default
+  `http://localhost:3000`). Disallowed browser origins (and their preflights) get no CORS
+  headers, so browsers block them; requests without an `Origin` header (carriers, curl) pass
+  through untouched.
 
 ### Menu schemas
 

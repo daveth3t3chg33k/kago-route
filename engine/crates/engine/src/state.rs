@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use sqlx::PgPool;
 
+use crate::config::Security;
 use crate::schema::Flow;
 use crate::session::SessionStore;
 
@@ -13,4 +14,5 @@ pub struct AppState {
     pub session_store: Arc<SessionStore>,
     pub db: Option<PgPool>,
     pub started_at: Instant,
+    pub security: Security,
 }

@@ -31,4 +31,19 @@ impl MemoryStore {
     pub async fn delete(&self, key: &str) {
         self.inner.write().await.remove(key);
     }
+
+    /// All non-expired variable caches, as `(key, value)` pairs.
+    pub async fn active_sessions(&self) -> Vec<(String, String)> {
+        let guard = self.inner.read().await;
+        let now = Instant::now();
+        let mut items: Vec<(String, String)> = guard
+            .iter()
+            .filter(|(k, (_, expires_at))| k.ends_with(":vars") && **expires_at > now)
+            .map(|(k, (v, _))| (k.clone(), v.clone()))
+            .collect();
+        // Newest-first (insertion order is not reliable; sort by nothing we
+        // track beyond expiry — keep it simple, order is informational).
+        items.sort_by(|a, b| b.1.cmp(&a.1));
+        items
+    }
 }

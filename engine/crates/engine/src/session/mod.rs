@@ -60,4 +60,19 @@ impl SessionStore {
             Self::Redis(_) => "redis",
         }
     }
+
+    /// Live sessions: unique `sessionId`s that have a cached variable set.
+    /// Returns `(session_id, vars_json)` pairs, newest-first where known.
+    pub async fn active_sessions(&self) -> Vec<(String, String)> {
+        match self {
+            Self::Memory(store) => store.active_sessions().await,
+            Self::Redis(store) => match store.active_sessions().await {
+                Ok(items) => items,
+                Err(err) => {
+                    tracing::warn!("redis active_sessions failed: {err}");
+                    Vec::new()
+                }
+            },
+        }
+    }
 }
